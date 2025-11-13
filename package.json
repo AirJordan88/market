@@ -2,12 +2,13 @@
   "name": "market",
   "type": "module",
   "imports": {
-    "#db/queries/*": "./db/queries/*.js",
-    "#db/*": "./db/*.js",
-    "#routes/*": "./routes/*.js",
-    "#middleware/*": "./middleware/*.js",
-    "#utils/*": "./utils/*.js",
-    "#*": "./*.js"
+    "#app": "./app.js",
+    "#db/": "./db/",
+    "#db/queries/": "./db/queries/",
+    "#routes/": "./routes/",
+    "#middleware/": "./middleware/",
+    "#utils/": "./utils/",
+    "#": "./"
   },
   "scripts": {
     "start": "node --env-file=.env server.js",
