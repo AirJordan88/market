@@ -2,13 +2,18 @@
   "name": "market",
   "type": "module",
   "imports": {
+    "#db/queries/*": "./db/queries/*.js",
+    "#db/*": "./db/*.js",
+    "#routes/*": "./routes/*.js",
+    "#middleware/*": "./middleware/*.js",
+    "#utils/*": "./utils/*.js",
     "#*": "./*.js"
   },
   "scripts": {
     "start": "node --env-file=.env server.js",
     "dev": "node --watch --env-file=.env server.js",
     "test": "vitest",
-    "db:schema": "psql -d market -f db/schema.sql",
+    "db:schema": "psql -U postgres -d market -f db/schema.sql",
     "db:seed": "node --env-file=.env db/seed.js",
     "db:reset": "npm run db:schema && npm run db:seed"
   },
