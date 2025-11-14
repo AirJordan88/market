@@ -1,120 +1,84 @@
-import { Router } from "express";
-import requireUser from "#middleware/requireUser";
-import requireBody from "#middleware/requireBody";
+import db from "#db/client";
 
-// DB
-import {
-  createOrder,
-  getOrdersByUser,
-  getOrderById,
-  addProductToOrder,
-  getOrderProducts,
-  getOrdersByProduct,
-} from "#db/queries/orders";
+/** CREATE a new order */
+export async function createOrder(userId, date) {
+  const result = await db.query(
+    `
+    INSERT INTO orders (user_id, date)
+    VALUES ($1, $2)
+    RETURNING *;
+    `,
+    [userId, date]
+  );
+  return result.rows[0];
+}
 
-const router = Router();
+/** GET all orders for a user */
+export async function getOrdersByUser(userId) {
+  const result = await db.query(
+    `
+    SELECT * FROM orders
+    WHERE user_id = $1
+    ORDER BY id;
+    `,
+    [userId]
+  );
+  return result.rows;
+}
 
-/**
- * POST /orders
- * - requires user
- * - requires { date }
- */
-router.post("/", requireUser, requireBody(["date"]), async (req, res, next) => {
-  try {
-    const order = await createOrder(req.user.id, req.body.date);
-    res.status(201).send(order);
-  } catch (err) {
-    next(err);
-  }
-});
+/** GET order by ID */
+export async function getOrderById(orderId) {
+  const result = await db.query(
+    `
+    SELECT * FROM orders
+    WHERE id = $1;
+    `,
+    [orderId]
+  );
+  return result.rows[0];
+}
 
-/**
- * GET /orders
- * - requires user
- */
-router.get("/", requireUser, async (req, res, next) => {
-  try {
-    const orders = await getOrdersByUser(req.user.id);
-    res.send(orders);
-  } catch (err) {
-    next(err);
-  }
-});
+/** ADD item to an order */
+export async function addProductToOrder(orderId, productId, quantity) {
+  const result = await db.query(
+    `
+    INSERT INTO orders_products (order_id, product_id, quantity)
+    VALUES ($1, $2, $3)
+    ON CONFLICT (order_id, product_id)
+    DO UPDATE SET quantity = orders_products.quantity + EXCLUDED.quantity
+    RETURNING *;
+    `,
+    [orderId, productId, quantity]
+  );
+  return result.rows[0];
+}
 
-/**
- * GET /orders/:id
- * - requires user
- * - 404 if missing
- * - 403 if belongs to another user
- */
-router.get("/:id", requireUser, async (req, res, next) => {
-  try {
-    const order = await getOrderById(req.params.id);
-    if (!order) return res.status(404).send("Order not found");
+/** GET all products in an order */
+export async function getOrderProducts(orderId) {
+  const result = await db.query(
+    `
+    SELECT p.*, op.quantity
+    FROM products p
+    JOIN orders_products op ON p.id = op.product_id
+    WHERE op.order_id = $1;
+    `,
+    [orderId]
+  );
+  return result.rows;
+}
 
-    if (order.user_id !== req.user.id) return res.status(403).send("Forbidden");
-
-    res.send(order);
-  } catch (err) {
-    next(err);
-  }
-});
-
-/**
- * POST /orders/:id/products
- * - requires user
- * - requires { productId, quantity }
- */
-router.post(
-  "/:id/products",
-  requireUser,
-  requireBody(["productId", "quantity"]),
-  async (req, res, next) => {
-    try {
-      const order = await getOrderById(req.params.id);
-      if (!order) return res.status(404).send("Order not found");
-      if (order.user_id !== req.user.id)
-        return res.status(403).send("Forbidden");
-
-      const added = await addProductToOrder(
-        req.params.id,
-        req.body.productId,
-        req.body.quantity
-      );
-
-      res.status(201).send(added);
-    } catch (err) {
-      next(err);
-    }
-  }
-);
-
-/**
- * GET /orders/:id/products
- */
-router.get("/:id/products", requireUser, async (req, res, next) => {
-  try {
-    const order = await getOrderById(req.params.id);
-    if (!order) return res.status(404).send("Order not found");
-    if (order.user_id !== req.user.id) return res.status(403).send("Forbidden");
-
-    const products = await getOrderProducts(req.params.id);
-    res.send(products);
-  } catch (err) {
-    next(err);
-  }
-});
-
-/**
- * GET /products/:id/orders
- */
-router.get("/products/:id/orders", requireUser, async (req, res, next) => {
-  try {
-    const orders = await getOrdersByProduct(req.params.id);
-    res.send(orders);
-  } catch (err) {
-    next(err);
-  }
-});
-
-export default router;
+/** GET all orders BY PRODUCT for a specific user */
+export async function getOrdersByProduct(productId, userId) {
+  const result = await db.query(
+    `
+    SELECT o.*
+    FROM orders o
+    JOIN orders_products op ON o.id = op.order_id
+    WHERE op.product_id = $1
+      AND o.user_id = $2
+    ORDER BY o.id;
+    `,
+    [productId, userId]
+  );
+  return result.rows;
+}
